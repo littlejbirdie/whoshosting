@@ -7,6 +7,9 @@ import os
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.presences = True  # Enable if using Presence Intent
+intents.members = True    # Enable if using Server Members Intent
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Predefined schedule in UTC
