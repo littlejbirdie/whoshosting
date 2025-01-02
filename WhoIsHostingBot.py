@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime, timedelta
 import pytz
+import asyncio
 
 TOKEN = 'YOUR_DISCORD_BOT_TOKEN'
 
@@ -42,8 +43,8 @@ def format_groups(time):
 async def on_ready():
     print(f'Logged in as {bot.user}')
 
-@bot.command()
-async def help(ctx):
+@bot.command(name="bothelp")
+async def bothelp(ctx):
     """Robust help command to display all commands and their usage."""
     help_message = (
         "**Bot Commands:**\n"
@@ -195,11 +196,23 @@ async def allgroups(ctx):
             await ctx.send(format_groups(time))
 
 @bot.command()
+@commands.has_any_role("officer", "leader", "fr3e staff")
 async def clear(ctx, time: str):
-    """Command to clear all sign-ups for a specific run. Usage: !clear [time]"""
+    """Command to clear all sign-ups for a specific run. Restricted to admins."""
     if time in signups:
-        del signups[time]
-        await ctx.send(f"All sign-ups for {time} have been cleared!")
+        await ctx.send(f"Are you sure you want to clear all sign-ups for {time}? Reply with `yes` to confirm.")
+
+        def check(m):
+            return m.author == ctx.author and m.content.lower() == "yes"
+
+        try:
+            confirmation = await bot.wait_for("message", check=check, timeout=30.0)
+            if confirmation:
+                del signups[time]
+                await ctx.send(f"All sign-ups for {time} have been cleared!")
+        except asyncio.TimeoutError:
+            await ctx.send("Clear command timed out. No changes were made.")
     else:
         await ctx.send(f"No sign-ups found for {time}.")
 
+bot.run(TOKEN)
