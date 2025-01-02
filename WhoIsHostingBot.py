@@ -5,15 +5,15 @@ import pytz
 import asyncio
 import os
 
-TOKEN = os.getenv("TOKEN")
-bot.run(TOKEN)
-
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Predefined schedule in UTC
 schedule = []
+
+TOKEN = os.getenv("TOKEN")
+bot.run(TOKEN)
 
 # Generate times from 1PM today to 11AM tomorrow (Eastern Time)
 start_time = datetime.now(pytz.timezone("US/Eastern")).replace(hour=13, minute=0, second=0, microsecond=0)
