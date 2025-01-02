@@ -3,8 +3,10 @@ from discord.ext import commands
 from datetime import datetime, timedelta
 import pytz
 import asyncio
+import os
 
-TOKEN = 'YOUR_DISCORD_BOT_TOKEN'
+TOKEN = os.getenv("TOKEN")
+bot.run(TOKEN)
 
 intents = discord.Intents.default()
 intents.message_content = True
