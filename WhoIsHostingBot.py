@@ -162,4 +162,3 @@ async def groups(ctx, time: str):
 
 @bot.command()
 async def allgroups(ctx):
-   
