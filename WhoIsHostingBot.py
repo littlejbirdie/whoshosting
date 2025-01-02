@@ -25,6 +25,9 @@ while current_time <= end_time:
 # Data structure to hold run sign-ups
 signups = {}
 
+# Data structure to hold offline status
+offline_status = {}
+
 def format_groups(time):
     """Format group information for display."""
     if time not in signups:
@@ -49,6 +52,8 @@ async def help(ctx):
         "    Example: `!join 1PM active @HostName`\n"
         "`!bulkjoin [role] [times] [host(optional) or names(optional)]` - Join multiple runs.\n"
         "    Example: `!bulkjoin host 1PM,5PM,7PM`\n"
+        "`!offline [times]` - Mark yourself as offline for specific runs.\n"
+        "    Example: `!offline 1PM,5PM,7PM`\n"
         "`!groups [time]` - View groups for a specific run time.\n"
         "    Example: `!groups 1PM`\n"
         "`!allgroups` - View all groups for all scheduled runs.\n"
@@ -156,9 +161,45 @@ async def bulkjoin(ctx, role: str, times: str, *names):
             await ctx.send("Invalid role! Use 'host', 'active', or 'alt'.")
 
 @bot.command()
+async def offline(ctx, times: str):
+    """Command for players to mark themselves as offline for specific runs. Usage: !offline [times]"""
+    times_list = times.split(",")
+    player_name = ctx.author.mention
+
+    if player_name not in offline_status:
+        offline_status[player_name] = []
+
+    for time in times_list:
+        time = time.strip()
+        if time not in [run["time"] for run in schedule]:
+            await ctx.send(f"{time} is not a valid run time. Skipping...")
+            continue
+
+        if time not in offline_status[player_name]:
+            offline_status[player_name].append(time)
+
+    await ctx.send(f"{player_name} marked as offline for: {', '.join(offline_status[player_name])}")
+
+@bot.command()
 async def groups(ctx, time: str):
     """Command to view groups for a specific time. Usage: !groups [time]"""
     await ctx.send(format_groups(time))
 
 @bot.command()
 async def allgroups(ctx):
+    """Command to view all groups."""
+    if not signups:
+        await ctx.send("No sign-ups yet!")
+    else:
+        for time in signups:
+            await ctx.send(format_groups(time))
+
+@bot.command()
+async def clear(ctx, time: str):
+    """Command to clear all sign-ups for a specific run. Usage: !clear [time]"""
+    if time in signups:
+        del signups[time]
+        await ctx.send(f"All sign-ups for {time} have been cleared!")
+    else:
+        await ctx.send(f"No sign-ups found for {time}.")
+
