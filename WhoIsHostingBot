@@ -47,6 +47,8 @@ async def help(ctx):
         "`!times` - Display scheduled run times in your local time.\n"
         "`!join [time] [role] [host(optional) or name(s)]` - Join a run. Roles: 'host', 'active', 'alt'.\n"
         "    Example: `!join 1PM active @HostName`\n"
+        "`!bulkjoin [role] [times] [host(optional) or names(optional)]` - Join multiple runs.\n"
+        "    Example: `!bulkjoin host 1PM,5PM,7PM`\n"
         "`!groups [time]` - View groups for a specific run time.\n"
         "    Example: `!groups 1PM`\n"
         "`!allgroups` - View all groups for all scheduled runs.\n"
@@ -109,26 +111,56 @@ async def join(ctx, time: str, role: str, *names):
         await ctx.send("Invalid role! Use 'host', 'active', or 'alt'.")
 
 @bot.command()
+async def bulkjoin(ctx, role: str, times: str, *names):
+    """Command for players to join multiple runs. Usage: !bulkjoin [role] [times] [host(optional) or names(optional)]"""
+    times_list = times.split(",")
+    player_name = ctx.author.mention
+
+    for time in times_list:
+        time = time.strip()
+        if time not in [run["time"] for run in schedule]:
+            await ctx.send(f"{time} is not a valid run time. Skipping...")
+            continue
+
+        if time not in signups:
+            signups[time] = {}
+
+        if role.lower() == 'host':
+            if player_name not in signups[time]:
+                signups[time][player_name] = {"actives": [], "alts": []}
+                await ctx.send(f"{player_name} has volunteered to host the {time} run!")
+            else:
+                await ctx.send(f"{player_name}, you are already hosting the {time} run!")
+        elif role.lower() == 'active':
+            if len(names) > 0:
+                host = names[0]
+                if host in signups[time]:
+                    signups[time][host]["actives"].append(player_name)
+                    await ctx.send(f"{player_name} has joined {host}'s group as an active player for {time}!")
+                else:
+                    await ctx.send(f"{host} is not a registered host for {time}. Please choose an existing host or ask someone to volunteer.")
+            else:
+                await ctx.send(f"Please specify a host to join for {time}.")
+        elif role.lower() == 'alt':
+            if len(names) > 1:
+                host = names[0]
+                alts = names[1:]
+                if host in signups[time]:
+                    signups[time][host]["alts"].extend(alts)
+                    await ctx.send(f"{', '.join(alts)} added as alts to {host}'s group for {time}!")
+                else:
+                    await ctx.send(f"{host} is not a registered host for {time}. Please choose an existing host.")
+            else:
+                await ctx.send(f"Please specify a host and the alts to join for {time}.")
+        else:
+            await ctx.send("Invalid role! Use 'host', 'active', or 'alt'.")
+
+@bot.command()
 async def groups(ctx, time: str):
     """Command to view groups for a specific time. Usage: !groups [time]"""
     await ctx.send(format_groups(time))
 
 @bot.command()
 async def allgroups(ctx):
-    """Command to view all groups."""
-    if not signups:
-        await ctx.send("No sign-ups yet!")
-    else:
-        for time in signups:
-            await ctx.send(format_groups(time))
+   
 
-@bot.command()
-async def clear(ctx, time: str):
-    """Command to clear all sign-ups for a specific run. Usage: !clear [time]"""
-    if time in signups:
-        del signups[time]
-        await ctx.send(f"All sign-ups for {time} have been cleared!")
-    else:
-        await ctx.send(f"No sign-ups found for {time}.")
-
-bot.run(TOKEN)
