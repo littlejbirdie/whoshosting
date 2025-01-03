@@ -20,13 +20,11 @@ offline_status = {}
 async def on_ready():
     """Event triggered when bot is ready."""
     try:
-        # Clear all commands globally
-        bot.tree.sync()  # Resync commands after clearing
-        print(f"Synced commands successfully.")
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands successfully.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
     print(f"Logged in as {bot.user}")
-
 
 @bot.tree.command(name="join", description="Join a run.")
 @app_commands.describe(
