@@ -16,15 +16,28 @@ schedule = []
 signups = {}
 offline_status = {}
 
-# Generate times from 11PM today to 9PM tomorrow (Eastern Time)
-start_time = datetime.now(pytz.timezone("US/Eastern")).replace(hour=23, minute=0, second=0, microsecond=0)
-end_time = start_time + timedelta(days=0, hours=12)  # Adjust for desired end time
+@bot.tree.command(name="times", description="Display scheduled run times.")
+async def times(interaction: discord.Interaction):
+    """Slash command to display run times in UTC, auto-adjusted for user timezones."""
+    # Fixed times in UTC
+    utc_times = [
+        {"time": "11PM", "utc_timestamp": 1706948400},  # Replace with actual UNIX timestamps
+        {"time": "1AM", "utc_timestamp": 1706955600},
+        {"time": "3AM", "utc_timestamp": 1706962800},
+        {"time": "5AM", "utc_timestamp": 1706970000},
+        {"time": "7AM", "utc_timestamp": 1706977200},
+        {"time": "9AM", "utc_timestamp": 1706984400},
+        {"time": "11AM", "utc_timestamp": 1706991600},
+    ]
 
-current_time = start_time
-while current_time <= end_time:
-    utc_time = current_time.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    schedule.append({"time": current_time.strftime("%I%p"), "utc_time": utc_time})
-    current_time += timedelta(hours=2)
+    # Format times for display
+    run_times = [
+        f"{time['time']} Eastern: <t:{time['utc_timestamp']}:f>"
+        for time in utc_times
+    ]
+
+    await interaction.response.send_message("**Scheduled Runs:**\n" + "\n".join(run_times))
+
 
 def format_groups(time):
     """Format group information for display."""
