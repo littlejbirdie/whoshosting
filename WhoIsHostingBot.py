@@ -66,7 +66,7 @@ async def schedule_command(interaction: discord.Interaction):
         app_commands.Choice(name="Run B", value="B"),
         app_commands.Choice(name="Run C", value="C"),
         app_commands.Choice(name="Run D", value="D"),
-    ]
+    ],
     role=[
         app_commands.Choice(name="Host", value="host"),
         app_commands.Choice(name="Active", value="active"),
