@@ -77,14 +77,16 @@ async def schedule_command(interaction: discord.Interaction):
 async def join(
     interaction: discord.Interaction,
     run: app_commands.Choice[str],
-    role: str,
+    role: app_commands.Choice[str],
     name: str = None,
     host: str = None
 ):
     """Slash command to join or update your status for a single run."""
     await interaction.response.defer()
 
+    # Extract selected values
     run_label = run.value
+    role_label = role.value
 
     # Default to the user's Discord name if no name is provided
     player_name = name or interaction.user.display_name
@@ -101,52 +103,55 @@ async def join(
         signups[run_label][host] = {"actives": [], "alts": [], "unavailable": []}
 
     # Handle roles
-    if role.lower() == "host":
+    if role_label == "host":
         signups[run_label][host] = {"actives": [], "alts": [], "unavailable": []}
-    elif role.lower() == "active":
+    elif role_label == "active":
         if player_name not in signups[run_label][host]["actives"]:
             signups[run_label][host]["actives"].append(player_name)
-    elif role.lower() == "alt":
+    elif role_label == "alt":
         if player_name not in signups[run_label][host]["alts"]:
             signups[run_label][host]["alts"].append(player_name)
-    elif role.lower() == "unavailable":
+    elif role_label == "unavailable":
         if player_name not in signups[run_label][host]["unavailable"]:
             signups[run_label][host]["unavailable"].append(player_name)
 
     # Send confirmation
     run_time = next(r for r in schedule if r["run"].endswith(run_label))
     await interaction.followup.send(
-        f"{player_name} has been added as '{role}' for Run {run_label} (<t:{run_time['utc_timestamp']}:f>) in the group '{host}'."
+        f"{player_name} has been added as '{role_label}' for Run {run_label} (<t:{run_time['utc_timestamp']}:f>) in the group '{host}'."
     )
 
 @bot.tree.command(name="groups", description="View groups for a specific run.")
 @app_commands.describe(
-    run="The run you want to view (e.g., 'Run A')."
+    run="The run you want to view (e.g., 'A')."
 )
 @app_commands.choices(
     run=[
-        app_commands.Choice(name="Run A", value="Run A"),
-        app_commands.Choice(name="Run B", value="Run B"),
-        app_commands.Choice(name="Run C", value="Run C"),
-        app_commands.Choice(name="Run D", value="Run D"),
+        app_commands.Choice(name="Run A", value="A"),
+        app_commands.Choice(name="Run B", value="B"),
+        app_commands.Choice(name="Run C", value="C"),
+        app_commands.Choice(name="Run D", value="D"),
     ]
 )
 async def groups(interaction: discord.Interaction, run: app_commands.Choice[str]):
     """Slash command to view groups for a specific run."""
     run_label = run.value
 
+    # Check if there are any sign-ups for the given run
     if run_label not in signups or not signups[run_label]:
-        await interaction.response.send_message(f"No sign-ups for {run_label}!")
+        await interaction.response.send_message(f"No sign-ups for Run {run_label}!")
         return
 
+    # Format the groups for the given run
     formatted_groups = []
     for host, details in signups[run_label].items():
         actives = ", ".join(details["actives"]) if details["actives"] else "None"
         alts = ", ".join(details["alts"]) if details["alts"] else "None"
         formatted_groups.append(f"- Host: {host} | Actives: {actives} | Alts: {alts}")
 
-    run_time = next(r for r in schedule if r["run"] == run_label)
-    response = f"**{run_label} Groups (<t:{run_time['utc_timestamp']}:f>):**\n" + "\n".join(formatted_groups)
+    # Retrieve the UTC timestamp for the run and respond with the group details
+    run_time = next(r for r in schedule if r["run"].endswith(run_label))
+    response = f"**Run {run_label} Groups (<t:{run_time['utc_timestamp']}:f>):**\n" + "\n".join(formatted_groups)
     await interaction.response.send_message(response)
 
 bot.run(os.getenv("TOKEN"))
