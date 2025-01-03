@@ -17,8 +17,9 @@ signups = {}
 offline_status = {}
 
 # Generate times from 1PM today to 11AM tomorrow (Eastern Time)
-start_time = datetime.now(pytz.timezone("US/Eastern")).replace(hour=13, minute=0, second=0, microsecond=0)
-end_time = start_time + timedelta(days=1, hours=-2)
+# Generate times from 11PM today to 9PM tomorrow (Eastern Time)
+start_time = datetime.now(pytz.timezone("US/Eastern")).replace(hour=23, minute=0, second=0, microsecond=0)
+end_time = start_time + timedelta(days=0, hours=22)  # Adjust for desired end time
 
 current_time = start_time
 while current_time <= end_time:
