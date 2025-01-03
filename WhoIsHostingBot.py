@@ -15,12 +15,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Predefined schedule with Run labels
 schedule = [
-    {"run": "Run A", "utc_timestamp": 1706953200},  # 3AM Eastern = 8AM UTC
-    {"run": "Run B", "utc_timestamp": 1706960400},  # 5AM Eastern = 10AM UTC
-    {"run": "Run C", "utc_timestamp": 1706967600},  # 7AM Eastern = 12PM UTC
-    {"run": "Run D", "utc_timestamp": 1706974800},  # 9AM Eastern = 2PM UTC
-    {"run": "Run E", "utc_timestamp": 1706982000},  # 11AM Eastern = 4PM UTC
+    {"run": "Run A", "utc_timestamp": 1735881600},  # 3AM Eastern = 8AM UTC
+    {"run": "Run B", "utc_timestamp": 1735888800},  # 5AM Eastern = 10AM UTC
+    {"run": "Run C", "utc_timestamp": 1735896000},  # 7AM Eastern = 12PM UTC
+    {"run": "Run D", "utc_timestamp": 1735903200},  # 9AM Eastern = 2PM UTC
+    {"run": "Run E", "utc_timestamp": 1735910400},  # 11AM Eastern = 4PM UTC
 ]
+
 signups = {}
 offline_status = {}
 
