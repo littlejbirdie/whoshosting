@@ -121,6 +121,44 @@ async def allgroups(interaction: discord.Interaction):
         for time in signups:
             await interaction.channel.send(format_groups(time))
 
+@bot.tree.command(name="bothelp", description="Display a list of available commands.")
+async def bothelp(interaction: discord.Interaction):
+    """Slash command to display all bot commands and their usage."""
+    help_message = (
+        "**Bot Commands:**\n"
+        "`/times` - Display scheduled run times.\n"
+        "`/join [time] [role] [host(optional)]` - Join a run. Roles: 'host', 'active', 'alt'.\n"
+        "`/groups [time]` - View groups for a specific run time.\n"
+        "`/allgroups` - View all groups for all scheduled runs.\n"
+        "`/clear [time]` - Clear all sign-ups for a specific run (Admin Only).\n"
+        "`/bulkjoin [time] [names]` - Add multiple names to a group at once.\n"
+    )
+    await interaction.response.send_message(help_message)
+
+
+@bot.tree.command(name="bulkjoin", description="Add multiple names to a group at once.")
+@app_commands.describe(
+    time="The time of the run (e.g., '1PM').",
+    names="Comma-separated list of names to add as actives or alts."
+)
+async def bulkjoin(interaction: discord.Interaction, time: str, names: str):
+    """Slash command to add multiple names to a group at once."""
+    if time not in [run["time"] for run in schedule]:
+        await interaction.response.send_message(f"{time} is not a valid run time. Use `/times` to view available times.")
+        return
+
+    if time not in signups:
+        signups[time] = {}
+
+    player_name = interaction.user.mention
+    name_list = [name.strip() for name in names.split(",")]
+
+    if player_name not in signups[time]:
+        signups[time][player_name] = {"actives": [], "alts": []}
+
+    signups[time][player_name]["actives"].extend(name_list)
+    await interaction.response.send_message(f"Added {', '.join(name_list)} to {player_name}'s group for the {time} run!")
+
 @bot.tree.command(name="clear", description="Clear all sign-ups for a specific run.")
 @app_commands.describe(time="The time of the run to clear (e.g., '1PM').")
 async def clear(interaction: discord.Interaction, time: str):
