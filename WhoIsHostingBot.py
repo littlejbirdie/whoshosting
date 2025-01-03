@@ -144,10 +144,19 @@ async def groups(interaction: discord.Interaction, run: app_commands.Choice[str]
 
     # Format the groups for the given run
     formatted_groups = []
+    unavailable_players = []
     for host, details in signups[run_label].items():
         actives = ", ".join(details["actives"]) if details["actives"] else "None"
         alts = ", ".join(details["alts"]) if details["alts"] else "None"
+        if details["unavailable"]:
+            unavailable_players.extend(details["unavailable"])  # Collect unavailable players
         formatted_groups.append(f"- Host: {host} | Actives: {actives} | Alts: {alts}")
+
+    # Add unavailable players as a separate group
+    if unavailable_players:
+        formatted_groups.append(
+            f"**Unavailable Players:** {', '.join(unavailable_players)}"
+        )
 
     # Retrieve the UTC timestamp for the run and respond with the group details
     run_time = next(r for r in schedule if r["run"].endswith(run_label))
