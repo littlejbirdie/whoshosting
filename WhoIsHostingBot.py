@@ -15,11 +15,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Predefined schedule with Run labels
 schedule = [
-    {"run": "Run A", "utc_timestamp": 1730577600},  # 3AM Eastern = 8AM UTC
-    {"run": "Run B", "utc_timestamp": 1730584800},  # 5AM Eastern = 10AM UTC
-    {"run": "Run C", "utc_timestamp": 1730592000},  # 7AM Eastern = 12PM UTC
-    {"run": "Run D", "utc_timestamp": 1730599200},  # 9AM Eastern = 2PM UTC
-    {"run": "Run E", "utc_timestamp": 1730606400},  # 11AM Eastern = 4PM UTC
+    {"run": "Run A", "utc_timestamp": 1735898400},  # 5AM Eastern = 10AM UTC
+    {"run": "Run B", "utc_timestamp": 1735905600},  # 7AM Eastern = 12AM UTC
+    {"run": "Run C", "utc_timestamp": 1735912800},  # 9AM Eastern = 2PM UTC
+    {"run": "Run D", "utc_timestamp": 1735920000},  # 11AM Eastern = 4PM UTC
 ]
 
 signups = {}
@@ -30,7 +29,7 @@ async def bothelp(interaction: discord.Interaction):
     """Slash command to display all bot commands and their usage."""
     help_message = (
         "**Bot Commands:**\n"
-        "`/schedule - Displays the local time for each run. Run A is 3am EST.\n"
+        "`/schedule - Displays the local time for each run. Run A is 5am EST.\n"
         "`/join [time] [role] [host(optional)]` - Join or update your status for a run. Roles: 'host', 'active', 'alt', 'unavailable'.\n"
         "`/groups [time]` - View groups for a specific run time.\n"
     )
@@ -67,7 +66,6 @@ async def schedule_command(interaction: discord.Interaction):
         app_commands.Choice(name="Run B", value="Run B"),
         app_commands.Choice(name="Run C", value="Run C"),
         app_commands.Choice(name="Run D", value="Run D"),
-        app_commands.Choice(name="Run E", value="Run E"),
     ]
 )
 async def join(
@@ -127,7 +125,6 @@ async def join(
         app_commands.Choice(name="Run B", value="Run B"),
         app_commands.Choice(name="Run C", value="Run C"),
         app_commands.Choice(name="Run D", value="Run D"),
-        app_commands.Choice(name="Run E", value="Run E"),
     ]
 )
 async def groups(interaction: discord.Interaction, run: app_commands.Choice[str]):
