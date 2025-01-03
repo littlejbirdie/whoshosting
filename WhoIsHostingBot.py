@@ -10,11 +10,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Predefined schedule starting at 3AM
 schedule = [
-    {"time": "3AM", "utc_timestamp": 1706962800},
-    {"time": "5AM", "utc_timestamp": 1706970000},
-    {"time": "7AM", "utc_timestamp": 1706977200},
-    {"time": "9AM", "utc_timestamp": 1706984400},
-    {"time": "11AM", "utc_timestamp": 1706991600},
+    {"time": "3AM", "utc_timestamp": 1706953200},  # 3AM Eastern = 8AM UTC
+    {"time": "5AM", "utc_timestamp": 1706960400},  # 5AM Eastern = 10AM UTC
+    {"time": "7AM", "utc_timestamp": 1706967600},  # 7AM Eastern = 12PM UTC
+    {"time": "9AM", "utc_timestamp": 1706974800},  # 9AM Eastern = 2PM UTC
+    {"time": "11AM", "utc_timestamp": 1706982000}, # 11AM Eastern = 4PM UTC
 ]
 signups = {}
 offline_status = {}
@@ -56,11 +56,14 @@ async def bothelp(interaction: discord.Interaction):
 
 @bot.tree.command(name="times", description="Display scheduled run times.")
 async def times(interaction: discord.Interaction):
-    """Slash command to display run times."""
+    """Slash command to display fixed scheduled run times."""
+    # Use the `schedule` variable to display times
     formatted_times = [
-        f"{time['time']} UTC: <t:{time['utc_timestamp']}:f>"
+        f"{time['time']} Eastern: <t:{time['utc_timestamp']}:f>"
         for time in schedule
     ]
+
+    # Send the response
     await interaction.response.send_message("**Scheduled Runs:**\n" + "\n".join(formatted_times))
 
 @bot.tree.command(name="join", description="Join or update your status for a run.")
