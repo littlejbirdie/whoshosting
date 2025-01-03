@@ -68,10 +68,10 @@ async def bothelp(interaction: discord.Interaction):
     ]
 )
 async def join(interaction: discord.Interaction, time: app_commands.Choice[str], role: str, host_or_names: str = None):
-    """Slash command to join or mark yourself unavailable for a run."""
+    """Slash command to join or update your status for a run."""
     time_value = time.value
     if time_value not in [run["time"] for run in schedule]:
-        await interaction.response.send_message(f"{time_value} is not a valid run time. Use `/times` to view available times.")
+        await interaction.response.send_message(f"{time_value} is not a valid run time. Use `/join` to view available times.")
         return
 
     if time_value not in signups:
@@ -79,74 +79,89 @@ async def join(interaction: discord.Interaction, time: app_commands.Choice[str],
 
     player_name = interaction.user.mention
 
+    # Set default host to "Join Without Host" if no host is specified
+    host = host_or_names or "Join Without Host"
+
+    # Ensure the host group exists
+    if host not in signups[time_value]:
+        signups[time_value][host] = {"actives": [], "alts": [], "unavailable": []}
+
+    # Handle roles
     if role.lower() == "host":
-        if player_name not in signups[time_value]:
-            signups[time_value][player_name] = {"actives": [], "alts": [], "unavailable": []}
-            await interaction.response.send_message(f"{player_name} has volunteered to host the {time_value} run!")
-        else:
-            await interaction.response.send_message(f"{player_name}, you are already hosting the {time_value} run!")
+        # Update host role
+        signups[time_value][host] = {"actives": [], "alts": [], "unavailable": []}
+        await interaction.response.send_message(f"{player_name} has volunteered to host the {time_value} run under the group '{host}'!")
     elif role.lower() == "active":
-        if host_or_names:
-            host = host_or_names
-            if host in signups[time_value]:
-                signups[time_value][host]["actives"].append(player_name)
-                await interaction.response.send_message(f"{player_name} has joined {host}'s group as an active player for {time_value}!")
-            else:
-                await interaction.response.send_message(f"{host} is not a registered host for {time_value}.")
-        else:
-            await interaction.response.send_message("Please specify a host to join.")
+        # Remove player from any existing group
+        for group in signups[time_value].values():
+            if player_name in group["actives"]:
+                group["actives"].remove(player_name)
+
+        # Add to the specified host group
+        signups[time_value][host]["actives"].append(player_name)
+        await interaction.response.send_message(f"{player_name} has joined the {time_value} run as an active player in the group '{host}'.")
     elif role.lower() == "alt":
-        if host_or_names:
-            host = host_or_names.split(",")[0]
-            alts = [alt.strip() for alt in host_or_names.split(",")[1:]]
-            if host in signups[time_value]:
-                signups[time_value][host]["alts"].extend(alts)
-                await interaction.response.send_message(f"{', '.join(alts)} added as alts to {host}'s group for {time_value}!")
-            else:
-                await interaction.response.send_message(f"{host} is not a registered host for {time_value}.")
-        else:
-            await interaction.response.send_message("Please specify a host and the alts to join.")
+        # Add player to alts for the specified host
+        signups[time_value][host]["alts"].append(player_name)
+        await interaction.response.send_message(f"{player_name} has joined the {time_value} run as an alt in the group '{host}'.")
     elif role.lower() == "unavailable":
-        if player_name not in signups[time_value]:
-            signups[time_value][player_name] = {"actives": [], "alts": [], "unavailable": [player_name]}
-            await interaction.response.send_message(f"{player_name} marked as unavailable for the {time_value} run.")
-        else:
-            await interaction.response.send_message(f"{player_name}, your status has been updated to unavailable for the {time_value} run.")
+        # Remove player from all groups for the time slot
+        for group in signups[time_value].values():
+            if player_name in group["actives"]:
+                group["actives"].remove(player_name)
+            if player_name in group["alts"]:
+                group["alts"].remove(player_name)
+
+        # Mark the player as unavailable
+        signups[time_value][host]["unavailable"].append(player_name)
+        await interaction.response.send_message(f"{player_name} has marked themselves as unavailable for the {time_value} run.")
     else:
         await interaction.response.send_message("Invalid role! Use 'host', 'active', 'alt', or 'unavailable'.")
 
 @bot.tree.command(name="bulkjoin", description="Add multiple names to a host's group for multiple times.")
 @app_commands.describe(
     times="Comma-separated list of run times (e.g., '3AM, 5AM, 7AM').",
-    names="Comma-separated list of names to add as actives or alts.",
-    host="The host's name or mention for the groups."
+    names="Comma-separated list of names to add as actives.",
+    host="The host's name or mention for the groups (optional)."
 )
-async def bulkjoin(interaction: discord.Interaction, times: str, names: str, host: str):
+async def bulkjoin(interaction: discord.Interaction, times: str, names: str, host: str = None):
     """Slash command to add multiple names to a host's group for multiple times."""
+    # Split and clean input
     time_list = [time.strip() for time in times.split(",")]
     name_list = [name.strip() for name in names.split(",")]
 
+    # Default host to "Join Without Host" if none is provided
+    host = host or "Join Without Host"
+
+    # Validate times
     valid_times = [run["time"] for run in schedule]
     invalid_times = [time for time in time_list if time not in valid_times]
 
     if invalid_times:
         await interaction.response.send_message(
-            f"The following times are invalid: {', '.join(invalid_times)}. Use `/times` to view available times.",
+            f"The following times are invalid: {', '.join(invalid_times)}. Use `/join` to view available times.",
             ephemeral=True
         )
         return
 
+    # Process valid times and add names to the specified host
     for time in time_list:
         if time not in signups:
             signups[time] = {}
 
+        # Ensure the host group exists
         if host not in signups[time]:
             signups[time][host] = {"actives": [], "alts": [], "unavailable": []}
 
-        signups[time][host]["actives"].extend(name_list)
+        # Add each name to the actives list for the host
+        for name in name_list:
+            # Prevent duplicates
+            if name not in signups[time][host]["actives"]:
+                signups[time][host]["actives"].append(name)
 
+    # Send confirmation
     await interaction.response.send_message(
-        f"Added {', '.join(name_list)} to {host}'s group for {', '.join(time_list)}!"
+        f"Added {', '.join(name_list)} to '{host}' for {', '.join(time_list)}!"
     )
 
 @bot.tree.command(name="clear", description="Clear all sign-ups for a specific run.")
