@@ -1,22 +1,19 @@
+
 import discord
+from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timedelta
 import pytz
-import asyncio
 import os
 
+# Bot and intents setup
 intents = discord.Intents.default()
 intents.message_content = True
-intents.presences = True  # Enable if using Presence Intent
-intents.members = True    # Enable if using Server Members Intent
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# Predefined schedule in UTC
+# Predefined schedule
 schedule = []
-
-TOKEN = os.getenv("TOKEN")
-bot.run(TOKEN)
+signups = {}
 
 # Generate times from 1PM today to 11AM tomorrow (Eastern Time)
 start_time = datetime.now(pytz.timezone("US/Eastern")).replace(hour=13, minute=0, second=0, microsecond=0)
@@ -28,196 +25,74 @@ while current_time <= end_time:
     schedule.append({"time": current_time.strftime("%I%p"), "utc_time": utc_time})
     current_time += timedelta(hours=2)
 
-# Data structure to hold run sign-ups
-signups = {}
-
-# Data structure to hold offline status
-offline_status = {}
-
-def format_groups(time):
-    """Format group information for display."""
-    if time not in signups:
-        return f"No sign-ups for {time}!"
-
-    formatted = f"**{time} Run Groups:**\n"
-    for host, details in signups[time].items():
-        formatted += f"- Host: {host} | Actives: {', '.join(details['actives'])} | Alts: {', '.join(details['alts'])}\n"
-    return formatted
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user}')
+    """Event triggered when bot is ready."""
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
+    print(f"Logged in as {bot.user}")
 
-@bot.command(name="bothelp")
-async def bothelp(ctx):
-    """Robust help command to display all commands and their usage."""
-    help_message = (
-        "**Bot Commands:**\n"
-        "`!times` - Display scheduled run times in your local time.\n"
-        "`!join [time] [role] [host(optional) or name(s)]` - Join a run. Roles: 'host', 'active', 'alt'.\n"
-        "    Example: `!join 1PM active @HostName`\n"
-        "`!bulkjoin [role] [times] [host(optional) or names(optional)]` - Join multiple runs.\n"
-        "    Example: `!bulkjoin host 1PM,5PM,7PM`\n"
-        "`!offline [times]` - Mark yourself as offline for specific runs.\n"
-        "    Example: `!offline 1PM,5PM,7PM`\n"
-        "`!groups [time]` - View groups for a specific run time.\n"
-        "    Example: `!groups 1PM`\n"
-        "`!allgroups` - View all groups for all scheduled runs.\n"
-        "`!clear [time]` - Clear all sign-ups for a specific run.\n"
-        "    Example: `!clear 1PM`\n"
-    )
-    await ctx.send(help_message)
 
-@bot.command()
-async def times(ctx):
-    """Command to display run times in user's local time."""
+@bot.tree.command(name="times", description="Display scheduled run times.")
+async def times(interaction: discord.Interaction):
+    """Slash command to display run times."""
     local_times = []
     for run in schedule:
         utc_time = datetime.strptime(run["utc_time"], "%Y-%m-%dT%H:%M:%SZ")
         unix_timestamp = int(utc_time.timestamp())
         local_times.append(f"{run['time']}: <t:{unix_timestamp}:f>")
+    await interaction.response.send_message("**Scheduled Runs:**\n" + "\n".join(local_times))
 
-    await ctx.send("**Scheduled Runs:**\n" + "\n".join(local_times))
 
-@bot.command()
-async def join(ctx, time: str, role: str, *names):
-    """Command for players to join a run. Usage: !join [time] [role] [host(optional) or name(s)]"""
+@bot.tree.command(name="join", description="Join a run.")
+@app_commands.describe(
+    time="The time of the run (e.g., '1PM').",
+    role="Your role in the run (host, active, or alt).",
+    host_or_names="Host's name or additional names (optional)."
+)
+async def join(interaction: discord.Interaction, time: str, role: str, host_or_names: str = None):
+    """Slash command to join a run."""
     if time not in [run["time"] for run in schedule]:
-        await ctx.send(f"{time} is not a valid run time. Use `!times` to view available times.")
+        await interaction.response.send_message(f"{time} is not a valid run time. Use `/times` to view available times.")
         return
 
     if time not in signups:
         signups[time] = {}
 
-    player_name = ctx.author.mention
+    player_name = interaction.user.mention
 
-    if role.lower() == 'host':
+    if role.lower() == "host":
         if player_name not in signups[time]:
             signups[time][player_name] = {"actives": [], "alts": []}
-            await ctx.send(f"{player_name} has volunteered to host the {time} run!")
+            await interaction.response.send_message(f"{player_name} has volunteered to host the {time} run!")
         else:
-            await ctx.send(f"{player_name}, you are already hosting the {time} run!")
-    elif role.lower() == 'active':
-        if len(names) > 0:
-            host = names[0]
+            await interaction.response.send_message(f"{player_name}, you are already hosting the {time} run!")
+    elif role.lower() == "active":
+        if host_or_names:
+            host = host_or_names
             if host in signups[time]:
                 signups[time][host]["actives"].append(player_name)
-                await ctx.send(f"{player_name} has joined {host}'s group as an active player for {time}!")
+                await interaction.response.send_message(f"{player_name} has joined {host}'s group as an active player for {time}!")
             else:
-                await ctx.send(f"{host} is not a registered host for {time}. Please choose an existing host or ask someone to volunteer.")
+                await interaction.response.send_message(f"{host} is not a registered host for {time}.")
         else:
-            await ctx.send(f"Please specify a host to join for {time}.")
-    elif role.lower() == 'alt':
-        if len(names) > 1:
-            host = names[0]
-            alts = names[1:]
+            await interaction.response.send_message("Please specify a host to join.")
+    elif role.lower() == "alt":
+        if host_or_names:
+            host = host_or_names.split(",")[0]
+            alts = [alt.strip() for alt in host_or_names.split(",")[1:]]
             if host in signups[time]:
                 signups[time][host]["alts"].extend(alts)
-                await ctx.send(f"{', '.join(alts)} added as alts to {host}'s group for {time}!")
+                await interaction.response.send_message(f"{', '.join(alts)} added as alts to {host}'s group for {time}!")
             else:
-                await ctx.send(f"{host} is not a registered host for {time}. Please choose an existing host.")
+                await interaction.response.send_message(f"{host} is not a registered host for {time}.")
         else:
-            await ctx.send(f"Please specify a host and the alts to join for {time}.")
+            await interaction.response.send_message("Please specify a host and the alts to join.")
     else:
-        await ctx.send("Invalid role! Use 'host', 'active', or 'alt'.")
+        await interaction.response.send_message("Invalid role! Use 'host', 'active', or 'alt'.")
 
-@bot.command()
-async def bulkjoin(ctx, role: str, times: str, *names):
-    """Command for players to join multiple runs. Usage: !bulkjoin [role] [times] [host(optional) or names(optional)]"""
-    times_list = times.split(",")
-    player_name = ctx.author.mention
-
-    for time in times_list:
-        time = time.strip()
-        if time not in [run["time"] for run in schedule]:
-            await ctx.send(f"{time} is not a valid run time. Skipping...")
-            continue
-
-        if time not in signups:
-            signups[time] = {}
-
-        if role.lower() == 'host':
-            if player_name not in signups[time]:
-                signups[time][player_name] = {"actives": [], "alts": []}
-                await ctx.send(f"{player_name} has volunteered to host the {time} run!")
-            else:
-                await ctx.send(f"{player_name}, you are already hosting the {time} run!")
-        elif role.lower() == 'active':
-            if len(names) > 0:
-                host = names[0]
-                if host in signups[time]:
-                    signups[time][host]["actives"].append(player_name)
-                    await ctx.send(f"{player_name} has joined {host}'s group as an active player for {time}!")
-                else:
-                    await ctx.send(f"{host} is not a registered host for {time}. Please choose an existing host or ask someone to volunteer.")
-            else:
-                await ctx.send(f"Please specify a host to join for {time}.")
-        elif role.lower() == 'alt':
-            if len(names) > 1:
-                host = names[0]
-                alts = names[1:]
-                if host in signups[time]:
-                    signups[time][host]["alts"].extend(alts)
-                    await ctx.send(f"{', '.join(alts)} added as alts to {host}'s group for {time}!")
-                else:
-                    await ctx.send(f"{host} is not a registered host for {time}. Please choose an existing host.")
-            else:
-                await ctx.send(f"Please specify a host and the alts to join for {time}.")
-        else:
-            await ctx.send("Invalid role! Use 'host', 'active', or 'alt'.")
-
-@bot.command()
-async def offline(ctx, times: str):
-    """Command for players to mark themselves as offline for specific runs. Usage: !offline [times]"""
-    times_list = times.split(",")
-    player_name = ctx.author.mention
-
-    if player_name not in offline_status:
-        offline_status[player_name] = []
-
-    for time in times_list:
-        time = time.strip()
-        if time not in [run["time"] for run in schedule]:
-            await ctx.send(f"{time} is not a valid run time. Skipping...")
-            continue
-
-        if time not in offline_status[player_name]:
-            offline_status[player_name].append(time)
-
-    await ctx.send(f"{player_name} marked as offline for: {', '.join(offline_status[player_name])}")
-
-@bot.command()
-async def groups(ctx, time: str):
-    """Command to view groups for a specific time. Usage: !groups [time]"""
-    await ctx.send(format_groups(time))
-
-@bot.command()
-async def allgroups(ctx):
-    """Command to view all groups."""
-    if not signups:
-        await ctx.send("No sign-ups yet!")
-    else:
-        for time in signups:
-            await ctx.send(format_groups(time))
-
-@bot.command()
-@commands.has_any_role("officer", "leader", "fr3e staff")
-async def clear(ctx, time: str):
-    """Command to clear all sign-ups for a specific run. Restricted to admins."""
-    if time in signups:
-        await ctx.send(f"Are you sure you want to clear all sign-ups for {time}? Reply with `yes` to confirm.")
-
-        def check(m):
-            return m.author == ctx.author and m.content.lower() == "yes"
-
-        try:
-            confirmation = await bot.wait_for("message", check=check, timeout=30.0)
-            if confirmation:
-                del signups[time]
-                await ctx.send(f"All sign-ups for {time} have been cleared!")
-        except asyncio.TimeoutError:
-            await ctx.send("Clear command timed out. No changes were made.")
-    else:
-        await ctx.send(f"No sign-ups found for {time}.")
-
-bot.run(TOKEN)
+bot.run(os.getenv("TOKEN"))
