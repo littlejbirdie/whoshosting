@@ -38,17 +38,6 @@ async def times(interaction: discord.Interaction):
 
     await interaction.response.send_message("**Scheduled Runs:**\n" + "\n".join(run_times))
 
-
-def format_groups(time):
-    """Format group information for display."""
-    if time not in signups:
-        return f"No sign-ups for {time}!"
-
-    formatted = f"**{time} Run Groups:**\n"
-    for host, details in signups[time].items():
-        formatted += f"- Host: {host} | Actives: {', '.join(details['actives'])} | Alts: {', '.join(details['alts'])}\n"
-    return formatted
-
 @bot.event
 async def on_ready():
     """Event triggered when bot is ready."""
