@@ -21,34 +21,12 @@ async def on_ready():
     """Event triggered when bot is ready."""
     try:
         # Clear all commands globally
-        bot.tree.clear_commands(guild=None)
-        await bot.tree.sync()  # Resync commands after clearing
+        bot.tree.sync()  # Resync commands after clearing
         print(f"Synced commands successfully.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
     print(f"Logged in as {bot.user}")
 
-@bot.tree.command(name="times", description="Display scheduled run times.")
-async def times(interaction: discord.Interaction):
-    """Slash command to display hardcoded run times in UTC, auto-adjusted for user timezones."""
-    # Hardcoded UTC times
-    utc_times = [
-        {"time": "11PM", "utc_timestamp": 1706948400},
-        {"time": "1AM", "utc_timestamp": 1706955600},
-        {"time": "3AM", "utc_timestamp": 1706962800},
-        {"time": "5AM", "utc_timestamp": 1706970000},
-        {"time": "7AM", "utc_timestamp": 1706977200},
-        {"time": "9AM", "utc_timestamp": 1706984400},
-        {"time": "11AM", "utc_timestamp": 1706991600},
-    ]
-
-    # Format times for display
-    local_times = [
-        f"{time['time']} Eastern: <t:{time['utc_timestamp']}:f>"
-        for time in utc_times
-    ]
-
-    await interaction.response.send_message("**Scheduled Runs:**\n" + "\n".join(local_times))
 
 @bot.tree.command(name="join", description="Join a run.")
 @app_commands.describe(
