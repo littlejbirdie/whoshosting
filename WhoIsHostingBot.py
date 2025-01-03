@@ -132,8 +132,7 @@ async def bothelp(interaction: discord.Interaction):
         "`/groups [time]` - View groups for a specific run time.\n"
         "`/allgroups` - View all groups for all scheduled runs.\n"
         "`/clear [time]` - Clear all sign-ups for a specific run (Admin Only).\n"
-        "`/bulkjoin [time] [names]` - Add multiple names amd times to a group at once.\nEx: /bulkjoin times: 11PM, 1AM names: playera, playerb host: @hostuser
-"
+        "`/bulkjoin [time] [names]` - Add multiple names and times to a group at once.\n"
     )
     await interaction.response.send_message(help_message)
 
