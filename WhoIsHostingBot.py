@@ -16,17 +16,15 @@ schedule = []
 signups = {}
 offline_status = {}
 
-# Generate times from 1PM today to 11AM tomorrow (Eastern Time)
 # Generate times from 11PM today to 9PM tomorrow (Eastern Time)
 start_time = datetime.now(pytz.timezone("US/Eastern")).replace(hour=23, minute=0, second=0, microsecond=0)
-end_time = start_time + timedelta(days=0, hours=22)  # Adjust for desired end time
+end_time = start_time + timedelta(days=0, hours=12)  # Adjust for desired end time
 
 current_time = start_time
 while current_time <= end_time:
     utc_time = current_time.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     schedule.append({"time": current_time.strftime("%I%p"), "utc_time": utc_time})
     current_time += timedelta(hours=2)
-
 
 def format_groups(time):
     """Format group information for display."""
@@ -48,7 +46,7 @@ async def on_ready():
         print(f"Error syncing commands: {e}")
     print(f"Logged in as {bot.user}")
 
-# Slash Commands
+#slash commands
 @bot.tree.command(name="times", description="Display scheduled run times.")
 async def times(interaction: discord.Interaction):
     """Slash command to display run times."""
@@ -107,9 +105,12 @@ async def join(interaction: discord.Interaction, time: str, role: str, host_or_n
         await interaction.response.send_message("Invalid role! Use 'host', 'active', or 'alt'.")
 
 @bot.tree.command(name="groups", description="View groups for a specific run time.")
-@app_commands.describe(time="The time of the run (e.g., '1PM').")
+@app_commands.describe(time="The time of the run (e.g., '11PM').")
 async def groups(interaction: discord.Interaction, time: str):
     """Slash command to view groups for a specific time."""
+    if time not in [run["time"] for run in schedule]:
+        await interaction.response.send_message(f"{time} is not a valid time. Use `/times` to view available times.")
+        return
     await interaction.response.send_message(format_groups(time))
 
 @bot.tree.command(name="allgroups", description="View all groups for all scheduled runs.")
@@ -118,8 +119,8 @@ async def allgroups(interaction: discord.Interaction):
     if not signups:
         await interaction.response.send_message("No sign-ups yet!")
     else:
-        for time in signups:
-            await interaction.channel.send(format_groups(time))
+        formatted_groups = [format_groups(time["time"]) for time in schedule if time["time"] in signups]
+        await interaction.response.send_message("\n\n".join(formatted_groups))
 
 @bot.tree.command(name="bothelp", description="Display a list of available commands.")
 async def bothelp(interaction: discord.Interaction):
@@ -131,56 +132,65 @@ async def bothelp(interaction: discord.Interaction):
         "`/groups [time]` - View groups for a specific run time.\n"
         "`/allgroups` - View all groups for all scheduled runs.\n"
         "`/clear [time]` - Clear all sign-ups for a specific run (Admin Only).\n"
-        "`/bulkjoin [time] [names]` - Add multiple names to a group at once.\n"
+        "`/bulkjoin [time] [names]` - Add multiple names amd times to a group at once.\nEx: /bulkjoin times: 11PM, 1AM names: playera, playerb host: @hostuser
+"
     )
     await interaction.response.send_message(help_message)
 
-
-@bot.tree.command(name="bulkjoin", description="Add multiple names to a group at once.")
+@bot.tree.command(name="bulkjoin", description="Add multiple names to a host's group for multiple times.")
 @app_commands.describe(
-    time="The time of the run (e.g., '1PM').",
-    names="Comma-separated list of names to add as actives or alts."
+    times="Comma-separated list of run times (e.g., '11PM, 1AM, 3AM').",
+    names="Comma-separated list of names to add as actives or alts.",
+    host="The host's name or mention for the groups."
 )
-async def bulkjoin(interaction: discord.Interaction, time: str, names: str):
-    """Slash command to add multiple names to a group at once."""
-    if time not in [run["time"] for run in schedule]:
-        await interaction.response.send_message(f"{time} is not a valid run time. Use `/times` to view available times.")
-        return
-
-    if time not in signups:
-        signups[time] = {}
-
-    player_name = interaction.user.mention
+async def bulkjoin(interaction: discord.Interaction, times: str, names: str, host: str):
+    """Slash command to add multiple names to a host's group for multiple times."""
+    # Split and clean input
+    time_list = [time.strip() for time in times.split(",")]
     name_list = [name.strip() for name in names.split(",")]
 
-    if player_name not in signups[time]:
-        signups[time][player_name] = {"actives": [], "alts": []}
+    # Validate times
+    valid_times = [run["time"] for run in schedule]
+    invalid_times = [time for time in time_list if time not in valid_times]
 
-    signups[time][player_name]["actives"].extend(name_list)
-    await interaction.response.send_message(f"Added {', '.join(name_list)} to {player_name}'s group for the {time} run!")
+    if invalid_times:
+        await interaction.response.send_message(
+            f"The following times are invalid: {', '.join(invalid_times)}. Use `/times` to view available times.",
+            ephemeral=True
+        )
+        return
 
+    # Process valid times and add names to the specified host
+    for time in time_list:
+        if time not in signups:
+            signups[time] = {}
+
+        # Add names to the group of the specified host
+        if host not in signups[time]:
+            signups[time][host] = {"actives": [], "alts": []}
+
+        signups[time][host]["actives"].extend(name_list)
+
+    await interaction.response.send_message(
+        f"Added {', '.join(name_list)} to {host}'s group for {', '.join(time_list)}!"
+    )
+    
 @bot.tree.command(name="clear", description="Clear all sign-ups for a specific run.")
-@app_commands.describe(time="The time of the run to clear (e.g., '1PM').")
+@app_commands.describe(time="The time of the run to clear (e.g., '11PM').")
 async def clear(interaction: discord.Interaction, time: str):
     """Slash command to clear all sign-ups for a specific run. Restricted to admins."""
     if not any(role.name in ["officer", "leader", "fr3e staff"] for role in interaction.user.roles):
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    if time in signups:
-        await interaction.response.send_message(f"Are you sure you want to clear all sign-ups for {time}? Reply with `yes` in the next message.")
-
-        def check(m):
-            return m.author == interaction.user and m.content.lower() == "yes"
-
-        try:
-            confirmation = await bot.wait_for("message", check=check, timeout=30.0)
-            if confirmation:
-                del signups[time]
-                await interaction.channel.send(f"All sign-ups for {time} have been cleared!")
-        except asyncio.TimeoutError:
-            await interaction.channel.send("Clear command timed out. No changes were made.")
+    if time in [run["time"] for run in schedule]:
+        if time in signups:
+            del signups[time]
+            await interaction.response.send_message(f"All sign-ups for {time} have been cleared!")
+        else:
+            await interaction.response.send_message(f"No sign-ups found for {time}.")
     else:
-        await interaction.response.send_message(f"No sign-ups found for {time}.")
+        await interaction.response.send_message(f"{time} is not a valid time. Use `/times` to view available times.")
+
 
 bot.run(os.getenv("TOKEN"))
