@@ -67,6 +67,12 @@ async def schedule_command(interaction: discord.Interaction):
         app_commands.Choice(name="Run C", value="C"),
         app_commands.Choice(name="Run D", value="D"),
     ]
+    role=[
+        app_commands.Choice(name="Host", value="host"),
+        app_commands.Choice(name="Active", value="active"),
+        app_commands.Choice(name="Alt", value="alt"),
+        app_commands.Choice(name="Unavailable", value="unavailable"),
+    ]
 )
 async def join(
     interaction: discord.Interaction,
