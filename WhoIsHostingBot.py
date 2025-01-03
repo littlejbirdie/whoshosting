@@ -19,16 +19,6 @@ schedule = [
 signups = {}
 offline_status = {}
 
-def format_groups(time):
-    """Format group information for display."""
-    if time not in signups:
-        return f"No sign-ups for {time}!"
-
-    formatted = f"**{time} Run Groups:**\n"
-    for host, details in signups[time].items():
-        formatted += f"- Host: {host} | Actives: {', '.join(details['actives'])} | Alts: {', '.join(details['alts'])}\n"
-    return formatted
-
 @bot.event
 async def on_ready():
     """Event triggered when bot is ready."""
@@ -56,7 +46,8 @@ async def bothelp(interaction: discord.Interaction):
 @app_commands.describe(
     time="The time of the run (e.g., '3AM').",
     role="Your role in the run (host, active, alt, or unavailable).",
-    host_or_names="Host's name or additional names (optional)."
+    name="The in-game name you want to use (optional). Defaults to your Discord username.",
+    host="The host's name or additional names (optional)."
 )
 @app_commands.choices(
     time=[
@@ -67,7 +58,7 @@ async def bothelp(interaction: discord.Interaction):
         app_commands.Choice(name="11AM", value="11AM"),
     ]
 )
-async def join(interaction: discord.Interaction, time: app_commands.Choice[str], role: str, host_or_names: str = None):
+async def join(interaction: discord.Interaction, time: app_commands.Choice[str], role: str, name: str = None, host: str = None):
     """Slash command to join or update your status for a run."""
     time_value = time.value
     if time_value not in [run["time"] for run in schedule]:
@@ -77,10 +68,11 @@ async def join(interaction: discord.Interaction, time: app_commands.Choice[str],
     if time_value not in signups:
         signups[time_value] = {}
 
-    player_name = interaction.user.mention
+    # Default to the user's Discord name if no name is provided
+    player_name = name or interaction.user.display_name
 
-    # Set default host to "Join Without Host" if no host is specified
-    host = host_or_names or "Join Without Host"
+    # Default to "Join Without Host" if no host is provided
+    host = host or "Join Without Host"
 
     # Ensure the host group exists
     if host not in signups[time_value]:
@@ -117,6 +109,7 @@ async def join(interaction: discord.Interaction, time: app_commands.Choice[str],
         await interaction.response.send_message(f"{player_name} has marked themselves as unavailable for the {time_value} run.")
     else:
         await interaction.response.send_message("Invalid role! Use 'host', 'active', 'alt', or 'unavailable'.")
+
 
 @bot.tree.command(name="bulkjoin", description="Add multiple names to a host's group for multiple times.")
 @app_commands.describe(
@@ -183,5 +176,33 @@ async def clear(interaction: discord.Interaction, time: app_commands.Choice[str]
         await interaction.response.send_message(f"All sign-ups for {time_value} have been cleared!")
     else:
         await interaction.response.send_message(f"No sign-ups found for {time_value}.")
+
+@bot.tree.command(name="groups", description="View groups for a specific run time.")
+@app_commands.describe(time="The time of the run to view (e.g., '3AM').")
+@app_commands.choices(
+    time=[
+        app_commands.Choice(name="3AM", value="3AM"),
+        app_commands.Choice(name="5AM", value="5AM"),
+        app_commands.Choice(name="7AM", value="7AM"),
+        app_commands.Choice(name="9AM", value="9AM"),
+        app_commands.Choice(name="11AM", value="11AM"),
+    ]
+)
+async def groups(interaction: discord.Interaction, time: app_commands.Choice[str]):
+    """Slash command to view groups for a specific time."""
+    time_value = time.value
+
+    if time_value not in signups or not signups[time_value]:
+        await interaction.response.send_message(f"No sign-ups for {time_value}!")
+        return
+
+    formatted_groups = []
+    for host, details in signups[time_value].items():
+        actives = ", ".join(details["actives"]) if details["actives"] else "None"
+        alts = ", ".join(details["alts"]) if details["alts"] else "None"
+        formatted_groups.append(f"- Host: {host} | Actives: {actives} | Alts: {alts}")
+
+    response = f"**{time_value} Run Groups:**\n" + "\n".join(formatted_groups)
+    await interaction.response.send_message(response)
 
 bot.run(os.getenv("TOKEN"))
