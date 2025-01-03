@@ -30,7 +30,7 @@ async def bothelp(interaction: discord.Interaction):
     help_message = (
         "**Bot Commands:**\n"
         "`/schedule - Displays the local time for each run. Run A is 5am EST.\n"
-        "`/join [time] [role] [host(optional)]` - Join or update your status for a run. Roles: 'host', 'active', 'alt', 'unavailable'.\n"
+        "`/join [time] [role] [host(optional)]` - Join or update your status for a single run. Roles: 'host', 'active', 'alt', 'unavailable'.\n"
         "`/groups [time]` - View groups for a specific run time.\n"
     )
     await interaction.response.send_message(help_message)
@@ -53,34 +53,32 @@ async def schedule_command(interaction: discord.Interaction):
         schedule_message += f"{run['run']}: <t:{run['utc_timestamp']}:f>\n"
     await interaction.response.send_message(schedule_message)
 
-@bot.tree.command(name="join", description="Join or update your status for one or more runs.")
+@bot.tree.command(name="join", description="Join or update your status for a run.")
 @app_commands.describe(
-    runs="The run(s) you want to join (e.g., 'A, B').",
-    role="Your role in the run(s) (host, active, alt, or unavailable).",
+    run="The run you want to join (e.g., 'A').",
+    role="Your role in the run (host, active, alt, or unavailable).",
     name="The in-game name you want to use (optional). Defaults to your Discord username.",
     host="The host's name or additional names (optional)."
 )
+@app_commands.choices(
+    run=[
+        app_commands.Choice(name="Run A", value="A"),
+        app_commands.Choice(name="Run B", value="B"),
+        app_commands.Choice(name="Run C", value="C"),
+        app_commands.Choice(name="Run D", value="D"),
+    ]
+)
 async def join(
     interaction: discord.Interaction,
-    runs: str,
+    run: app_commands.Choice[str],
     role: str,
     name: str = None,
     host: str = None
 ):
-    """Slash command to join or update your status for one or more runs."""
-    await interaction.response.defer()  # Prevent timeout
+    """Slash command to join or update your status for a single run."""
+    await interaction.response.defer()
 
-    # Normalize and validate runs
-    input_runs = [run.strip().upper() for run in runs.split(",")]
-    valid_runs = ["A", "B", "C", "D"]
-    invalid_runs = [run for run in input_runs if run not in valid_runs]
-
-    if invalid_runs:
-        await interaction.followup.send(
-            f"The following runs are invalid: {', '.join(invalid_runs)}. Use valid runs: {', '.join(valid_runs)}.",
-            ephemeral=True
-        )
-        return
+    run_label = run.value
 
     # Default to the user's Discord name if no name is provided
     player_name = name or interaction.user.display_name
@@ -88,36 +86,32 @@ async def join(
     # Default to "Join Without Host" if no host is provided
     host = host or "Join Without Host"
 
-    # Process each valid run
-    for run_label in input_runs:
-        run = next(run for run in schedule if run["run"].endswith(run_label))
-        utc_timestamp = run["utc_timestamp"]
+    # Add the player to the chosen run
+    if run_label not in signups:
+        signups[run_label] = {}
 
-        if run_label not in signups:
-            signups[run_label] = {}
+    # Ensure the host group exists
+    if host not in signups[run_label]:
+        signups[run_label][host] = {"actives": [], "alts": [], "unavailable": []}
 
-        # Ensure the host group exists
-        if host not in signups[run_label]:
-            signups[run_label][host] = {"actives": [], "alts": [], "unavailable": []}
-
-        # Handle roles
-        if role.lower() == "host":
-            signups[run_label][host] = {"actives": [], "alts": [], "unavailable": []}
-        elif role.lower() == "active":
-            if player_name not in signups[run_label][host]["actives"]:
-                signups[run_label][host]["actives"].append(player_name)
-        elif role.lower() == "alt":
-            if player_name not in signups[run_label][host]["alts"]:
-                signups[run_label][host]["alts"].append(player_name)
-        elif role.lower() == "unavailable":
-            if player_name not in signups[run_label][host]["unavailable"]:
-                signups[run_label][host]["unavailable"].append(player_name)
+    # Handle roles
+    if role.lower() == "host":
+        signups[run_label][host] = {"actives": [], "alts": [], "unavailable": []}
+    elif role.lower() == "active":
+        if player_name not in signups[run_label][host]["actives"]:
+            signups[run_label][host]["actives"].append(player_name)
+    elif role.lower() == "alt":
+        if player_name not in signups[run_label][host]["alts"]:
+            signups[run_label][host]["alts"].append(player_name)
+    elif role.lower() == "unavailable":
+        if player_name not in signups[run_label][host]["unavailable"]:
+            signups[run_label][host]["unavailable"].append(player_name)
 
     # Send confirmation
+    run_time = next(r for r in schedule if r["run"].endswith(run_label))
     await interaction.followup.send(
-        f"{player_name} has been added as '{role}' for the following runs: {', '.join(input_runs)} in the group '{host}'."
+        f"{player_name} has been added as '{role}' for Run {run_label} (<t:{run_time['utc_timestamp']}:f>) in the group '{host}'."
     )
-
 
 @bot.tree.command(name="groups", description="View groups for a specific run.")
 @app_commands.describe(
