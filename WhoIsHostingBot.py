@@ -44,7 +44,6 @@ async def bothelp(interaction: discord.Interaction):
     """Slash command to display all bot commands and their usage."""
     help_message = (
         "**Bot Commands:**\n"
-        "`/times` - Display scheduled run times.\n"
         "`/join [time] [role] [host(optional)]` - Join or update your status for a run. Roles: 'host', 'active', 'alt', 'unavailable'.\n"
         "`/groups [time]` - View groups for a specific run time.\n"
         "`/allgroups` - View all groups for all scheduled runs.\n"
@@ -52,19 +51,6 @@ async def bothelp(interaction: discord.Interaction):
         "`/bulkjoin [times] [names] [host]` - Add multiple names to a host's group for multiple times. Example: `/bulkjoin times: 3AM, 5AM names: John, Jane host: HostName`.\n"
     )
     await interaction.response.send_message(help_message)
-
-
-@bot.tree.command(name="times", description="Display scheduled run times.")
-async def times(interaction: discord.Interaction):
-    """Slash command to display fixed scheduled run times."""
-    # Use the `schedule` variable to display times
-    formatted_times = [
-        f"{time['time']} Eastern: <t:{time['utc_timestamp']}:f>"
-        for time in schedule
-    ]
-
-    # Send the response
-    await interaction.response.send_message("**Scheduled Runs:**\n" + "\n".join(formatted_times))
 
 @bot.tree.command(name="join", description="Join or update your status for a run.")
 @app_commands.describe(
